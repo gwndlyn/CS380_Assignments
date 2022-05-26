@@ -21,6 +21,7 @@ void L_MoveToMouseClick::on_update(float dt)
 
     if (result == true)
     {
+        std::cout << "move to mouse" << std::endl;
         on_success();
     }
 

@@ -5,11 +5,19 @@
 void ProjectOne::setup()
 {
     // Create your inital agents
-    agents->create_behavior_agent("ExampleAgent", BehaviorTreeTypes::Example);
-    agents->create_behavior_agent("BirdAgent", BehaviorTreeTypes::Bird);
-    agents->create_behavior_agent("CustomerAgent", BehaviorTreeTypes::Customer);
-    agents->create_behavior_agent("DogAgent", BehaviorTreeTypes::Dog);
-    agents->create_behavior_agent("StoreOwnerAgent", BehaviorTreeTypes::StoreOwner);
+    //agents->create_behavior_agent("ExampleAgent", BehaviorTreeTypes::Example);
+    auto bird = agents->create_behavior_agent("BirdAgent", BehaviorTreeTypes::Bird);
+    bird->set_position(Vec3(10.0f, 10.0f, 00.0f));
+    bird->set_color(Vec3(1.0f, 0.1f, 0.1f));
+    bird->set_movement_speed(40.0f);
+
+    auto customer = agents->create_behavior_agent("CustomerAgent", BehaviorTreeTypes::Customer);
+
+    auto dog = agents->create_behavior_agent("DogAgent", BehaviorTreeTypes::Dog);
+    bird->set_position(Vec3(40.0f, 40.0f, 0.0f));
+    dog->set_movement_speed(20.0f);
+
+    auto storeowner = agents->create_behavior_agent("StoreOwnerAgent", BehaviorTreeTypes::StoreOwner);
 
     // you can technically load any map you want, even create your own map file,
     // but behavior agents won't actually avoid walls or anything special, unless you code that yourself

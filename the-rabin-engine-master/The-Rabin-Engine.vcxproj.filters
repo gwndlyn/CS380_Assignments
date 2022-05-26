@@ -316,6 +316,19 @@
     <ClInclude Include="Source\Framework\Agent\EnemyAgent.h">
       <Filter>Source\Framework\Agent</Filter>
     </ClInclude>
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_StoreValueInBlackboard.h">
+      <Filter>Source\Student\Project_1\Decorator</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Student\Project_1\Decorator\D_IfDogIsInRange.h">
+      <Filter>Source\Student\Project_1\Decorator</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_FlyAway.h">
+      <Filter>Source\Student\Project_1\Leaf</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_Land.h">
+      <Filter>Source\Student\Project_1\Leaf</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Student\Project_1\Decorator\D_AlwaysReturnFalse.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Framework\Main.cpp">
@@ -534,6 +547,19 @@
     <ClCompile Include="Source\Framework\Agent\EnemyAgent.cpp">
       <Filter>Source\Framework\Agent</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_StoreValueInBlackboard.cpp">
+      <Filter>Source\Student\Project_1\Decorator</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Student\Project_1\Decorator\D_IfDogIsInRange.cpp">
+      <Filter>Source\Student\Project_1\Decorator</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_FlyAway.cpp">
+      <Filter>Source\Student\Project_1\Leaf</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_Land.cpp">
+      <Filter>Source\Student\Project_1\Leaf</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Student\Project_1\Decorator\D_AlwaysReturnFalse.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

@@ -7,8 +7,15 @@ REGISTER_DECORATOR(D_Delay, "D_Delay")
 REGISTER_DECORATOR(D_InvertedRepeater, "D_InvertedRepeater")
 REGISTER_DECORATOR(D_RepeatFourTimes, "D_RepeatFourTimes")
 
+REGISTER_DECORATOR(D_AlwaysReturnFalse, "D_AlwaysReturnFalse")
+REGISTER_DECORATOR(D_IfDogIsInRange, "D_IfDogIsInRange")
+
 REGISTER_LEAF(L_CheckMouseClick, "L_CheckMouseClick")
 REGISTER_LEAF(L_Idle, "L_Idle")
 REGISTER_LEAF(L_MoveToFurthestAgent, "L_MoveToFurthestAgent")
 REGISTER_LEAF(L_MoveToMouseClick, "L_MoveToMouseClick")
 REGISTER_LEAF(L_MoveToRandomPosition, "L_MoveToRandomPosition")
+
+REGISTER_LEAF(L_StoreValueInBlackboard, "L_StoreValueInBlackboard")
+REGISTER_LEAF(L_FlyAway, "L_FlyAway")
+REGISTER_LEAF(L_Land, "L_Land")

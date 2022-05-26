@@ -4,6 +4,8 @@
 
 void L_CheckMouseClick::on_update(float dt)
 {
+    std::cout << "check mouse click" << std::endl;
+
     const auto leftMouseState = InputHandler::get_current_state(MouseButtons::LEFT);
 
     if (leftMouseState == InputHandler::InputState::PRESSED)
@@ -24,6 +26,7 @@ void L_CheckMouseClick::on_update(float dt)
             auto &bb = agent->get_blackboard();
             bb.set_value("Click Position", worldPos.first);
 
+            std::cout << worldPos.first.x << " " << worldPos.first.y << " " << worldPos.first.z << std::endl;
             on_success();
         }
         else
