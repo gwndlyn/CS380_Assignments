@@ -3,8 +3,6 @@
 
 void D_InvertedRepeater::on_update(float dt)
 {
-    std::cout << "inverted repeater" << std::endl;
-
     BehaviorNode *child = children.front();
 
     child->tick(dt);

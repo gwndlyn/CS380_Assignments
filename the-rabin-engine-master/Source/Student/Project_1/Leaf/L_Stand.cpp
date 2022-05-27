@@ -1,16 +1,15 @@
 #include "pch.h"
-#include "L_Land.h"
+#include "L_Stand.h"
 
-void L_Land::on_enter()
+void L_Stand::on_enter()
 {
 	targetPoint = agent->get_position();
-	targetPoint.y = targetHeight;
+	targetPoint.y = height;
 
 	BehaviorNode::on_leaf_enter();
-
 }
 
-void L_Land::on_update(float dt)
+void L_Stand::on_update(float dt)
 {
 	const auto result = agent->move_toward_point(targetPoint, dt);
 

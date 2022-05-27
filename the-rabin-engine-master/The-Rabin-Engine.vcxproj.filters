@@ -329,6 +329,14 @@
       <Filter>Source\Student\Project_1\Leaf</Filter>
     </ClInclude>
     <ClInclude Include="Source\Student\Project_1\Decorator\D_AlwaysReturnFalse.h" />
+    <ClInclude Include="Source\Student\Project_1\Decorator\D_IfBirdIsInRange.h" />
+    <ClInclude Include="Source\Student\Project_1\Decorator\D_IfOwnerIsInRange.h" />
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_ChaseBird.h" />
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_FollowOwner.h" />
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_SpinTwice.h" />
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_Sit.h" />
+    <ClInclude Include="Source\Student\Project_1\Leaf\L_Stand.h" />
+    <ClInclude Include="Source\Student\Project_1\Decorator\D_IfCustomerIsInRange.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Framework\Main.cpp">
@@ -560,6 +568,14 @@
       <Filter>Source\Student\Project_1\Leaf</Filter>
     </ClCompile>
     <ClCompile Include="Source\Student\Project_1\Decorator\D_AlwaysReturnFalse.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Decorator\D_IfBirdIsInRange.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Decorator\D_IfOwnerIsInRange.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_ChaseBird.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_FollowOwner.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_SpinTwice.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_Sit.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Leaf\L_Stand.cpp" />
+    <ClCompile Include="Source\Student\Project_1\Decorator\D_IfCustomerIsInRange.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />

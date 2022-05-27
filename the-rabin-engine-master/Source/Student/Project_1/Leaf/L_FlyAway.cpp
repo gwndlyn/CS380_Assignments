@@ -17,7 +17,6 @@ void L_FlyAway::on_update(float dt)
 
 	if (result == true)
 	{
-		std::cout << "Fly away" << std::endl;
 		on_success();
 	}
 

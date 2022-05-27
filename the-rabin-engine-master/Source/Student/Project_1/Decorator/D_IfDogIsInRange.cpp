@@ -10,17 +10,13 @@ void D_IfDogIsInRange::on_update(float dt)
 
 	BehaviorNode* child = children.front();
 	child->tick(dt);
-	//set_status(child->get_status());
-	//set_result(child->get_result());
 
 	if (distFromDog <= range)
 	{
-		std::cout << "dog in range" << std::endl;
 		on_success();
 	}
 	else
 	{
-		std::cout << "dog NOT in range" << std::endl;
 		on_failure();
 	}
 }

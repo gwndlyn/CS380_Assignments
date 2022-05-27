@@ -18,7 +18,6 @@ void L_MoveToRandomPosition::on_update(float dt)
 
     if (result == true)
     {
-        std::cout << "move to random position" << std::endl;
         on_success();
     }
 

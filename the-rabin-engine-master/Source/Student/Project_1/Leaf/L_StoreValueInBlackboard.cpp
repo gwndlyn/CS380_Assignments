@@ -8,7 +8,7 @@ void L_StoreValueInBlackboard::on_update(float dt)
 	{
 		if (a != agent)
 		{
-			std::cout << "stored " << a->get_type() << " pos in blackboard" << std::endl;
+			//std::cout << "stored " << a->get_type() << " pos in blackboard" << std::endl;
 			agent->get_blackboard().set_value(a->get_type(), a->get_position());
 		}
 	}

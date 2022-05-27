@@ -17,7 +17,6 @@ void L_Idle::on_update(float dt)
 
     if (timer < 0.0f)
     {
-        //std::cout << "L_Idle" << std::endl;
         on_success();
     }
 
