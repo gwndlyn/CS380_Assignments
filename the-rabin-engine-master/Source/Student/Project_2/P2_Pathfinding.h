@@ -23,4 +23,29 @@ public:
         makes sense to you.
     */
 
+    struct Node
+    {
+        Vec3 pos;
+        double fCost, gCost, hCost;
+        Vec3 parentPos;
+        //float cost; //cost from start to that point
+        //might have to write a operator< or operator> 
+    };
+
+    //using NodePQ = std::priority_queue<Node, std::vector<Node>, std::greater<Node>>;
+    using NodeVec = std::vector<Node>;
+    
+    float heuristic;
+    NodeVec openList;
+    NodeVec closedList;
+    PathResult pathResult;
+    PathRequest& req;
+
+    float CalculateHeuristicCost(Vec3 start);
+
+    void runASTAR();
+    //void runFLOYD_WARSHALL();
+    //void runGOAL_BOUNDING();
+    //void runJPS_PLUS();
+
 };
