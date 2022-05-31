@@ -23,26 +23,42 @@ public:
         makes sense to you.
     */
 
+    enum ONLIST
+    {
+        NONE,
+        OPEN,
+        CLOSED
+    };
+
     struct Node
     {
         Vec3 pos;
-        double fCost, gCost, hCost;
-        Vec3 parentPos;
-        //float cost; //cost from start to that point
-        //might have to write a operator< or operator> 
-    };
+        Vec3 parentNodePos;
+        double fCost, gCost;
+        ONLIST onList;
 
-    //using NodePQ = std::priority_queue<Node, std::vector<Node>, std::greater<Node>>;
-    using NodeVec = std::vector<Node>;
+        Node(Vec3 p = Vec3(), Vec3 par = Vec3(), double f = FLT_MAX, double g = 0.0f, ONLIST ol = NONE);
+    };
     
+    //variables
     float heuristic;
-    NodeVec openList;
-    NodeVec closedList;
+    std::array<Node, 1600> nodeArr;
+    std::vector<Node*> openList;
+    std::vector<Node*> closedList;
+
+    //reference varables 
     PathResult pathResult;
     PathRequest& req;
+    Vec3 gridSize;
 
-    float CalculateHeuristicCost(Vec3 start);
+    //helper functions for nodes
+    float CalculateHeuristicCost(Vec3 start, Vec3 end);
+    void UpdateCost(Node* child, Node* parent, float newF, float newG);
+    Node* PopCheapestOpenListNode();
+    Node* FindInBothLists(const Vec3& pos);
+    int SingleIndexConverter(const Vec3& pos);
 
+    //algo functions
     void runASTAR();
     //void runFLOYD_WARSHALL();
     //void runGOAL_BOUNDING();

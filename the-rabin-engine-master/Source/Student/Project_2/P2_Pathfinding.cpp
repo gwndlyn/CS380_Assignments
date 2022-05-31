@@ -35,6 +35,8 @@ bool AStarPather::initialize()
 		object that std::function can wrap will suffice.
 	*/
 
+	gridSize = Vec3(terrain->get_map_width(), terrain->get_map_height(), 0.0f);
+
 	return true; // return false if any errors actually occur, to stop engine initialization
 }
 
@@ -87,7 +89,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	{
 	case Method::ASTAR:
 	{
-		runASTAR(request);
+		runASTAR();
 		break;
 	}
 	case Method::FLOYD_WARSHALL:
@@ -124,7 +126,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 void AStarPather::runASTAR()
 {
 	//Push Start Node onto the Open List.
-	//	While(Open List is not empty)
+	//While(Open List is not empty)
 	//{
 	//	Pop cheapest node off Open List(parent node).
 	//		If node is the Goal Node, then path found(RETURN “found”).
@@ -142,6 +144,7 @@ void AStarPather::runASTAR()
 	//}
 	//Open List empty, thus no path possible(RETURN “fail”).
 
+	/*
 	openList.emplace_back(Node{ req.start , 0.0f });
 
 	while (!openList.empty())
@@ -157,12 +160,12 @@ void AStarPather::runASTAR()
 			return;
 		}
 
-		std::vector<Vec3> neighbours = 
-		{ 
-			parentNode.pos.Up, 
+		std::vector<Vec3> neighbours =
+		{
+			parentNode.pos.Up,
 			parentNode.pos.Down,
-			parentNode.pos.Left, 
-			parentNode.pos.Right 
+			parentNode.pos.Left,
+			parentNode.pos.Right
 		};
 
 		for (Vec3& n : neighbours)
@@ -195,35 +198,119 @@ void AStarPather::runASTAR()
 		pathResult = PathResult::IMPOSSIBLE;
 		return;
 	}
+	*/
+
+	openList.emplace_back(nodeArr[SingleIndexConverter(req.start)]);
+
+	while (!openList.empty())
+	{
+		Node* pNode = PopCheapestOpenListNode();
+
+		//terrain->is_wall();
+
+		if (pNode->pos == req.goal)
+		{
+			pathResult = PathResult::COMPLETE;
+			return;
+		}
+
+		std::vector<Node*> neighbours =
+		{
+			&nodeArr[SingleIndexConverter(pNode->pos.Up)],
+			&nodeArr[SingleIndexConverter(pNode->pos.Down)],
+			&nodeArr[SingleIndexConverter(pNode->pos.Left)],
+			&nodeArr[SingleIndexConverter(pNode->pos.Right)]
+		};
+
+		for (Node* n : neighbours)
+		{
+			//check if it is a wall
+			if (terrain->is_wall(n->pos.x, n->pos.y))
+				continue;
+
+			//TODO check if this is right
+			n->fCost = n->gCost + (CalculateHeuristicCost(n->pos, req.goal) * req.settings.weight);
+
+			if ((std::find(openList.begin(), openList.end(), n) != openList.end())
+				|| (std::find(closedList.begin(), closedList.end(), n) != closedList.end()))
+			{
+				openList.emplace_back(n);
+			}
+			else
+			{
+				//TODO check this logic
+				UpdateCost(n, pNode, n->fCost, n->gCost);
+			}
+
+			closedList.emplace_back(pNode);
+
+			//TODO check if timeout is correct
+			if (req.settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
+			{
+				pathResult = PathResult::PROCESSING;
+				return;
+			}
+		}
+
+	}
+	if (openList.empty())
+	{
+		pathResult = PathResult::IMPOSSIBLE;
+		return;
+	}
+
 }
 
-float AStarPather::CalculateHeuristicCost(Vec3 start)
+AStarPather::Node::Node(Vec3 p = Vec3(), Vec3 par = Vec3(), double f = FLT_MAX, double g = 0.0f, ONLIST ol = NONE)
+	: pos{ p }, parentNodePos{ par }, fCost{ f }, gCost{ g }, onList{ ol } { }
+
+float AStarPather::CalculateHeuristicCost(Vec3 start, Vec3 end)
 {
 	//Grid heuristic distance calculations
-	Vec3 tempStart = start;
-	Vec3 tempGoal = req.goal;
-	Vec3 diff = Vec2(abs(tempStart.x - tempGoal.x), abs(tempStart.y - tempGoal.y));
+	Vec3 diff = Vec2(std::abs(start.x - end.x), std::abs(start.y - end.y));
+
 	switch (req.settings.heuristic)
 	{
+	default:
 	case Heuristic::OCTILE:
 	{
-		heuristic = std::min(diff.x, diff.y) * sqrt(2) + std::max(diff.x, diff.y) - std::min(diff.x, diff.y);
-		break;
+		return std::min(diff.x, diff.y) * sqrt(2) + std::max(diff.x, diff.y) - std::min(diff.x, diff.y);
 	}
 	case Heuristic::CHEBYSHEV:
 	{
-		heuristic = std::max(diff.x, diff.y);
-		break;
+		return std::max(diff.x, diff.y);
 	}
 	case Heuristic::MANHATTAN:
 	{
-		heuristic = diff.x + diff.y;
-		break;
+		return diff.x + diff.y;
 	}
 	case Heuristic::EUCLIDEAN:
 	{
-		heuristic = sqrt(diff.x * diff.x + diff.y * diff.y);
-		break;
+		return sqrt(diff.x * diff.x + diff.y * diff.y);
 	}
 	}
 }
+
+AStarPather::Node* AStarPather::PopCheapestOpenListNode()
+{
+	Node* temp = *openList.begin();
+	std::find(openList.begin(), openList.end(), [&](Node* a) { temp = (temp->fCost < a->fCost) ? temp : a; });
+	openList.erase(std::find(openList.begin(), openList.end(), temp));
+	return temp;
+}
+
+int AStarPather::SingleIndexConverter(const Vec3& pos)
+{
+	return pos.y * gridSize.x + pos.x;
+}
+
+void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
+{
+	//if (newF < child->fCost)
+	//{
+	//	child->fCost = newF;
+	//	child->gCost = newG;
+	//	child->parentNodePos = parent->pos;
+	//}
+}
+
