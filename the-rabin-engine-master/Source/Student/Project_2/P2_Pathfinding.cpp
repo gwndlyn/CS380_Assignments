@@ -109,7 +109,18 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	}
 	}
 
-	//draw info
+	for (const auto& c : closedList)
+		req.path.push_back(c->pos);
+
+	//draw grid with color
+	auto openColor = Colors::LightPink;
+	auto closedColor = Colors::BlueViolet;
+
+	for (const Node*& o : openList)
+		terrain->set_color(GridPos{ static_cast<int>(o->pos.y), static_cast<int>(o->pos.x) }, openColor);
+
+	for (const Node*& c : closedList)
+		terrain->set_color(GridPos{ static_cast<int>(c->pos.y), static_cast<int>(c->pos.x) }, closedColor);
 
 	return pathResult;
 
@@ -200,13 +211,13 @@ void AStarPather::runASTAR()
 	}
 	*/
 
-	openList.emplace_back(nodeArr[SingleIndexConverter(req.start)]);
+	Node* startNode = &nodeArr[SingleIndexConverter(req.start)];
+	openList.emplace_back(startNode);
+	startNode->onList = OPEN;
 
 	while (!openList.empty())
 	{
 		Node* pNode = PopCheapestOpenListNode();
-
-		//terrain->is_wall();
 
 		if (pNode->pos == req.goal)
 		{
@@ -228,21 +239,26 @@ void AStarPather::runASTAR()
 			if (terrain->is_wall(n->pos.x, n->pos.y))
 				continue;
 
-			//TODO check if this is right
-			n->fCost = n->gCost + (CalculateHeuristicCost(n->pos, req.goal) * req.settings.weight);
+			//calculate cost
+			int g = pNode->gCost + 1;
+			int h = CalculateHeuristicCost(n->pos, req.goal) * req.settings.weight;
+			int f = g + h;
 
-			if ((std::find(openList.begin(), openList.end(), n) != openList.end())
-				|| (std::find(closedList.begin(), closedList.end(), n) != closedList.end()))
+			if (n->onList == OPEN || n->onList == CLOSED)
 			{
 				openList.emplace_back(n);
+				n->onList = OPEN;
+				n->fCost = f;
+				n->gCost = g;
+				n->parentNodePos = pNode->pos;
 			}
 			else
 			{
-				//TODO check this logic
-				UpdateCost(n, pNode, n->fCost, n->gCost);
+				UpdateCost(n, pNode, f, g);
 			}
 
 			closedList.emplace_back(pNode);
+			pNode->onList = CLOSED;
 
 			//TODO check if timeout is correct
 			if (req.settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
@@ -295,6 +311,7 @@ AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 {
 	Node* temp = *openList.begin();
 	std::find(openList.begin(), openList.end(), [&](Node* a) { temp = (temp->fCost < a->fCost) ? temp : a; });
+	temp->onList = NONE;
 	openList.erase(std::find(openList.begin(), openList.end(), temp));
 	return temp;
 }
@@ -306,11 +323,11 @@ int AStarPather::SingleIndexConverter(const Vec3& pos)
 
 void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 {
-	//if (newF < child->fCost)
-	//{
-	//	child->fCost = newF;
-	//	child->gCost = newG;
-	//	child->parentNodePos = parent->pos;
-	//}
+	if (newF > child->fCost)
+		return;
+
+	child->fCost = newF;
+	child->gCost = newG;
+	child->parentNodePos = parent->pos;
 }
 
