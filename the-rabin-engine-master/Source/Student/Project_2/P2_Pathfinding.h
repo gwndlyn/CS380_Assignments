@@ -34,28 +34,26 @@ public:
     {
         Vec3 pos;
         Vec3 parentNodePos;
-        double fCost, gCost;
+        float fCost, gCost;
         ONLIST onList;
 
-        Node(Vec3 p = Vec3(), Vec3 par = Vec3(), double f = FLT_MAX, double g = 0.0f, ONLIST ol = NONE);
+        Node(Vec3 p = Vec3(), Vec3 par = Vec3(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = NONE);
     };
     
     //variables
-    float heuristic;
     std::array<Node, 1600> nodeArr;
     std::vector<Node*> openList;
     std::vector<Node*> closedList;
 
     //reference varables 
     PathResult pathResult;
-    PathRequest& req;
+    PathRequest* req;
     Vec3 gridSize;
 
     //helper functions for nodes
     float CalculateHeuristicCost(Vec3 start, Vec3 end);
     void UpdateCost(Node* child, Node* parent, float newF, float newG);
     Node* PopCheapestOpenListNode();
-    Node* FindInBothLists(const Vec3& pos);
     int SingleIndexConverter(const Vec3& pos);
 
     //algo functions

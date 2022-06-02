@@ -35,7 +35,23 @@ bool AStarPather::initialize()
 		object that std::function can wrap will suffice.
 	*/
 
-	gridSize = Vec3(terrain->get_map_width(), terrain->get_map_height(), 0.0f);
+	//gridSize = Vec3((float)terrain->get_map_width(), (float)terrain->get_map_height(), 0.0f);
+
+	//openList.clear();
+	//closedList.clear();
+	//std::fill(nodeArr.begin(), nodeArr.end(), Node());
+	Messenger::listen_for_message(Messages::MAP_CHANGE, [this]()
+								  {
+									  gridSize = Vec3(static_cast<float>(terrain->get_map_width()), static_cast<float>(terrain->get_map_height()), 0.0f);
+
+									  openList.clear();
+									  closedList.clear();
+									  std::fill(nodeArr.begin(), nodeArr.end(), Node());
+
+									  req = nullptr;
+
+								  });
+
 
 	return true; // return false if any errors actually occur, to stop engine initialization
 }
@@ -82,7 +98,17 @@ PathResult AStarPather::compute_path(PathRequest& request)
 			IMPOSSIBLE - a path from start to goal does not exist, do not add start position to path
 	*/
 
-	req = request;
+	if (req != nullptr || request.newRequest)
+	{
+		req = &request;
+		req->newRequest = false;
+
+		//openList.clear();
+		//closedList.clear();
+		//std::fill(nodeArr.begin(), nodeArr.end(), Node());
+
+		initialize();
+	}
 
 	//Run chosen algo
 	switch (request.settings.method)
@@ -110,16 +136,16 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	}
 
 	for (const auto& c : closedList)
-		req.path.push_back(c->pos);
+		req->path.push_back(c->pos);
 
 	//draw grid with color
 	auto openColor = Colors::LightPink;
 	auto closedColor = Colors::BlueViolet;
 
-	for (const Node*& o : openList)
+	for (const Node* o : openList)
 		terrain->set_color(GridPos{ static_cast<int>(o->pos.y), static_cast<int>(o->pos.x) }, openColor);
 
-	for (const Node*& c : closedList)
+	for (const Node* c : closedList)
 		terrain->set_color(GridPos{ static_cast<int>(c->pos.y), static_cast<int>(c->pos.x) }, closedColor);
 
 	return pathResult;
@@ -211,7 +237,7 @@ void AStarPather::runASTAR()
 	}
 	*/
 
-	Node* startNode = &nodeArr[SingleIndexConverter(req.start)];
+	Node* startNode = &nodeArr[SingleIndexConverter(req->start)];
 	openList.emplace_back(startNode);
 	startNode->onList = OPEN;
 
@@ -219,7 +245,7 @@ void AStarPather::runASTAR()
 	{
 		Node* pNode = PopCheapestOpenListNode();
 
-		if (pNode->pos == req.goal)
+		if (pNode->pos == req->goal)
 		{
 			pathResult = PathResult::COMPLETE;
 			return;
@@ -236,13 +262,13 @@ void AStarPather::runASTAR()
 		for (Node* n : neighbours)
 		{
 			//check if it is a wall
-			if (terrain->is_wall(n->pos.x, n->pos.y))
+			if (terrain->is_wall((int)n->pos.x, (int)n->pos.y))
 				continue;
 
 			//calculate cost
-			int g = pNode->gCost + 1;
-			int h = CalculateHeuristicCost(n->pos, req.goal) * req.settings.weight;
-			int f = g + h;
+			float g = pNode->gCost + 1;
+			float h = CalculateHeuristicCost(n->pos, req->goal) * req->settings.weight;
+			float f = g + h;
 
 			if (n->onList == OPEN || n->onList == CLOSED)
 			{
@@ -261,7 +287,7 @@ void AStarPather::runASTAR()
 			pNode->onList = CLOSED;
 
 			//TODO check if timeout is correct
-			if (req.settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
+			if (req->settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
 			{
 				pathResult = PathResult::PROCESSING;
 				return;
@@ -277,7 +303,7 @@ void AStarPather::runASTAR()
 
 }
 
-AStarPather::Node::Node(Vec3 p = Vec3(), Vec3 par = Vec3(), double f = FLT_MAX, double g = 0.0f, ONLIST ol = NONE)
+AStarPather::Node::Node(Vec3 p, Vec3 par, float f, float g, ONLIST ol)
 	: pos{ p }, parentNodePos{ par }, fCost{ f }, gCost{ g }, onList{ ol } { }
 
 float AStarPather::CalculateHeuristicCost(Vec3 start, Vec3 end)
@@ -285,12 +311,12 @@ float AStarPather::CalculateHeuristicCost(Vec3 start, Vec3 end)
 	//Grid heuristic distance calculations
 	Vec3 diff = Vec2(std::abs(start.x - end.x), std::abs(start.y - end.y));
 
-	switch (req.settings.heuristic)
+	switch (req->settings.heuristic)
 	{
 	default:
 	case Heuristic::OCTILE:
 	{
-		return std::min(diff.x, diff.y) * sqrt(2) + std::max(diff.x, diff.y) - std::min(diff.x, diff.y);
+		return std::min(diff.x, diff.y) * (float)sqrt(2) + std::max(diff.x, diff.y) - std::min(diff.x, diff.y);
 	}
 	case Heuristic::CHEBYSHEV:
 	{
@@ -309,16 +335,20 @@ float AStarPather::CalculateHeuristicCost(Vec3 start, Vec3 end)
 
 AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 {
-	Node* temp = *openList.begin();
-	std::find(openList.begin(), openList.end(), [&](Node* a) { temp = (temp->fCost < a->fCost) ? temp : a; });
-	temp->onList = NONE;
-	openList.erase(std::find(openList.begin(), openList.end(), temp));
-	return temp;
+	std::sort(openList.begin(), openList.end(), [](Node* a, Node* b) { return a->fCost > b->fCost; });
+
+	auto retNode = openList.back();
+	retNode->onList = NONE;
+
+	auto temp = openList.end() - 1;
+	openList.erase(temp);
+
+	return retNode;
 }
 
 int AStarPather::SingleIndexConverter(const Vec3& pos)
 {
-	return pos.y * gridSize.x + pos.x;
+	return (int)(pos.y * gridSize.x + pos.x);
 }
 
 void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
