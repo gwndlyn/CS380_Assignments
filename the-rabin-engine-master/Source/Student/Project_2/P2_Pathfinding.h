@@ -1,6 +1,15 @@
 #pragma once
 #include "Misc/PathfindingDetails.hpp"
 
+struct Vec2Int
+{
+    int x, y;
+
+    Vec2Int(int _x = 0, int _y = 0);
+    Vec2Int(Vec3 v);
+    Vec3 ConvertToVec3();
+};
+
 class AStarPather
 {
 public:
@@ -32,12 +41,12 @@ public:
 
     struct Node
     {
-        Vec3 pos;
-        Vec3 parentNodePos;
+        Vec2Int pos;
+        Vec2Int parentNodePos;
         float fCost, gCost;
         ONLIST onList;
 
-        Node(Vec3 p = Vec3(), Vec3 par = Vec3(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = NONE);
+        Node(Vec2Int p = Vec2Int(), Vec2Int par = Vec2Int(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = NONE);
     };
     
     //variables
@@ -48,13 +57,13 @@ public:
     //reference varables 
     PathResult pathResult;
     PathRequest* req;
-    Vec3 gridSize;
+    Vec2Int gridSize;
 
     //helper functions for nodes
-    float CalculateHeuristicCost(Vec3 start, Vec3 end);
+    float CalculateHeuristicCost(Vec2Int start, Vec2Int end);
     void UpdateCost(Node* child, Node* parent, float newF, float newG);
     Node* PopCheapestOpenListNode();
-    int SingleIndexConverter(const Vec3& pos);
+    int SingleIndexConverter(const Vec2Int& pos);
 
     //algo functions
     void runASTAR();

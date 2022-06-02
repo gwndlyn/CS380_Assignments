@@ -103,10 +103,6 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		req = &request;
 		req->newRequest = false;
 
-		//openList.clear();
-		//closedList.clear();
-		//std::fill(nodeArr.begin(), nodeArr.end(), Node());
-
 		initialize();
 	}
 
@@ -136,17 +132,17 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	}
 
 	for (const auto& c : closedList)
-		req->path.push_back(c->pos);
+		req->path.push_back(c->pos.ConvertToVec3());
 
 	//draw grid with color
 	auto openColor = Colors::LightPink;
 	auto closedColor = Colors::BlueViolet;
 
 	for (const Node* o : openList)
-		terrain->set_color(GridPos{ static_cast<int>(o->pos.y), static_cast<int>(o->pos.x) }, openColor);
+		terrain->set_color(GridPos{ o->pos.y, o->pos.x }, openColor);
 
 	for (const Node* c : closedList)
-		terrain->set_color(GridPos{ static_cast<int>(c->pos.y), static_cast<int>(c->pos.x) }, closedColor);
+		terrain->set_color(GridPos{ c->pos.y, c->pos.x }, closedColor);
 
 	return pathResult;
 
@@ -245,24 +241,27 @@ void AStarPather::runASTAR()
 	{
 		Node* pNode = PopCheapestOpenListNode();
 
-		if (pNode->pos == req->goal)
+		if (static_cast<float>(pNode->pos.x) == req->goal.x
+			&& static_cast<float>(pNode->pos.y) == req->goal.y)
 		{
 			pathResult = PathResult::COMPLETE;
 			return;
 		}
 
+		//todo make map bounds check here
+		Vec3 v3PNode = pNode->pos.ConvertToVec3();
 		std::vector<Node*> neighbours =
 		{
-			&nodeArr[SingleIndexConverter(pNode->pos.Up)],
-			&nodeArr[SingleIndexConverter(pNode->pos.Down)],
-			&nodeArr[SingleIndexConverter(pNode->pos.Left)],
-			&nodeArr[SingleIndexConverter(pNode->pos.Right)]
+			&nodeArr[SingleIndexConverter(v3PNode.Up)],
+			&nodeArr[SingleIndexConverter(v3PNode.Down)],
+			&nodeArr[SingleIndexConverter(v3PNode.Left)],
+			&nodeArr[SingleIndexConverter(v3PNode.Right)]
 		};
 
 		for (Node* n : neighbours)
 		{
 			//check if it is a wall
-			if (terrain->is_wall((int)n->pos.x, (int)n->pos.y))
+			if (terrain->is_wall(n->pos.x, n->pos.y))
 				continue;
 
 			//calculate cost
@@ -303,13 +302,13 @@ void AStarPather::runASTAR()
 
 }
 
-AStarPather::Node::Node(Vec3 p, Vec3 par, float f, float g, ONLIST ol)
+AStarPather::Node::Node(Vec2Int p, Vec2Int par, float f, float g, ONLIST ol)
 	: pos{ p }, parentNodePos{ par }, fCost{ f }, gCost{ g }, onList{ ol } { }
 
-float AStarPather::CalculateHeuristicCost(Vec3 start, Vec3 end)
+float AStarPather::CalculateHeuristicCost(Vec2Int start, Vec2Int end)
 {
 	//Grid heuristic distance calculations
-	Vec3 diff = Vec2(std::abs(start.x - end.x), std::abs(start.y - end.y));
+	Vec3 diff = Vec2(static_cast<float>(std::abs(start.x - end.x)), static_cast<float>(std::abs(start.y - end.y)));
 
 	switch (req->settings.heuristic)
 	{
@@ -346,9 +345,9 @@ AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 	return retNode;
 }
 
-int AStarPather::SingleIndexConverter(const Vec3& pos)
+int AStarPather::SingleIndexConverter(const Vec2Int& pos)
 {
-	return (int)(pos.y * gridSize.x + pos.x);
+	return pos.y * gridSize.x + pos.x;
 }
 
 void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
@@ -359,5 +358,16 @@ void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 	child->fCost = newF;
 	child->gCost = newG;
 	child->parentNodePos = parent->pos;
+}
+
+Vec2Int::Vec2Int(int _x, int _y)
+	: x{ _x }, y{ _y } { }
+
+Vec2Int::Vec2Int(Vec3 v)
+	: x{ static_cast<int>(v.x) }, y{ static_cast<int>(v.y) } { }
+
+Vec3 Vec2Int::ConvertToVec3()
+{
+	return Vec3(static_cast<float>(x), static_cast<float>(y), 0.0f);
 }
 
