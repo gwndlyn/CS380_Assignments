@@ -58,8 +58,8 @@ struct WindowPos
 
 struct GridPos
 {
-    int row;
-    int col;
+    int row; //y
+    int col; //x
 
     bool operator==(const GridPos &rhs) const
     {

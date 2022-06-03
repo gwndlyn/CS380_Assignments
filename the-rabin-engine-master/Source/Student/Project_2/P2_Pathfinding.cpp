@@ -1,4 +1,5 @@
 #include <pch.h>
+#include <pch.h>
 #include "Projects/ProjectTwo.h"
 #include "P2_Pathfinding.h"
 
@@ -48,8 +49,6 @@ bool AStarPather::initialize()
 									  closedList.clear();
 									  std::fill(nodeArr.begin(), nodeArr.end(), Node());
 
-									  req = nullptr;
-
 								  });
 
 
@@ -98,20 +97,15 @@ PathResult AStarPather::compute_path(PathRequest& request)
 			IMPOSSIBLE - a path from start to goal does not exist, do not add start position to path
 	*/
 
-	if (req != nullptr || request.newRequest)
-	{
-		req = &request;
-		req->newRequest = false;
-
+	if (request.newRequest)
 		initialize();
-	}
 
 	//Run chosen algo
 	switch (request.settings.method)
 	{
 	case Method::ASTAR:
 	{
-		runASTAR();
+		runASTAR(request);
 		break;
 	}
 	case Method::FLOYD_WARSHALL:
@@ -120,8 +114,9 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		break;
 	}
 
-	for (const auto& c : closedList)
-		req->path.push_back(c->pos.ConvertToVec3());
+	if (pathResult == PathResult::COMPLETE)
+		for (const auto& c : closedList)
+			request.path.push_back(c->pos.ConvertToVec3());
 
 	//draw grid with color
 	auto openColor = Colors::LightPink;
@@ -145,7 +140,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	//return PathResult::COMPLETE;
 }
 
-void AStarPather::runASTAR()
+void AStarPather::runASTAR(PathRequest& request)
 {
 	//Push Start Node onto the Open List.
 	//While(Open List is not empty)
@@ -222,7 +217,7 @@ void AStarPather::runASTAR()
 	}
 	*/
 
-	Node* startNode = &nodeArr[SingleIndexConverter(req->start)];
+	Node* startNode = &nodeArr[SingleIndexConverter(request.start)];
 	openList.emplace_back(startNode);
 	startNode->onList = ONLIST::OPEN;
 
@@ -230,8 +225,8 @@ void AStarPather::runASTAR()
 	{
 		Node* pNode = PopCheapestOpenListNode();
 
-		if (static_cast<float>(pNode->pos.x) == req->goal.x
-			&& static_cast<float>(pNode->pos.y) == req->goal.y)
+		if (static_cast<float>(pNode->pos.x) == request.goal.x
+			&& static_cast<float>(pNode->pos.y) == request.goal.y)
 		{
 			pathResult = PathResult::COMPLETE;
 			return;
@@ -239,13 +234,13 @@ void AStarPather::runASTAR()
 
 		//get neighbours
 		Vec3 v3PNode = pNode->pos.ConvertToVec3();
-		std::vector<Vec3> neighbourPos; 
+		std::vector<Vec3> neighbourPos;
 		neighbourPos.emplace_back(v3PNode.Up);
 		neighbourPos.emplace_back(v3PNode.Down);
 		neighbourPos.emplace_back(v3PNode.Left);
 		neighbourPos.emplace_back(v3PNode.Down);
 
-		std::vector<Node*> neighbours; 
+		std::vector<Node*> neighbours;
 		for (int i = 0; i < neighbourPos.size(); ++i)
 		{
 			Vec3 pos = neighbourPos[i];
@@ -264,7 +259,7 @@ void AStarPather::runASTAR()
 
 			//calculate cost
 			float g = pNode->gCost + 1;
-			float h = CalculateHeuristicCost(n->pos, req->goal) * req->settings.weight;
+			float h = CalculateHeuristicCost(n->pos, request.goal, request.settings.heuristic) * request.settings.weight;
 			float f = g + h;
 
 			if (n->onList == ONLIST::OPEN || n->onList == ONLIST::CLOSED)
@@ -284,7 +279,7 @@ void AStarPather::runASTAR()
 			pNode->onList = ONLIST::CLOSED;
 
 			//TODO check if timeout is correct
-			if (req->settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
+			if (request.settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
 			{
 				pathResult = PathResult::PROCESSING;
 				return;
@@ -303,12 +298,12 @@ void AStarPather::runASTAR()
 AStarPather::Node::Node(Vec2Int p, Vec2Int par, float f, float g, ONLIST ol)
 	: pos{ p }, parentNodePos{ par }, fCost{ f }, gCost{ g }, onList{ ol } { }
 
-float AStarPather::CalculateHeuristicCost(Vec2Int start, Vec2Int end)
+float AStarPather::CalculateHeuristicCost(const Vec2Int& start, const Vec2Int& end, const Heuristic& h)
 {
 	//Grid heuristic distance calculations
 	Vec3 diff = Vec2(static_cast<float>(std::abs(start.x - end.x)), static_cast<float>(std::abs(start.y - end.y)));
 
-	switch (req->settings.heuristic)
+	switch (h)
 	{
 	default:
 	case Heuristic::OCTILE:
