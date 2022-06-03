@@ -32,7 +32,7 @@ public:
         makes sense to you.
     */
 
-    enum ONLIST
+    enum class ONLIST
     {
         NONE,
         OPEN,
@@ -46,7 +46,7 @@ public:
         float fCost, gCost;
         ONLIST onList;
 
-        Node(Vec2Int p = Vec2Int(), Vec2Int par = Vec2Int(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = NONE);
+        Node(Vec2Int p = Vec2Int(), Vec2Int par = Vec2Int(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = ONLIST::NONE);
     };
     
     //variables
@@ -67,8 +67,5 @@ public:
 
     //algo functions
     void runASTAR();
-    //void runFLOYD_WARSHALL();
-    //void runGOAL_BOUNDING();
-    //void runJPS_PLUS();
 
 };

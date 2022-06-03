@@ -115,20 +115,9 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		break;
 	}
 	case Method::FLOYD_WARSHALL:
-	{
-		//runFLOYD_WARSHALL(req);
-		break;
-	}
 	case Method::GOAL_BOUNDING:
-	{
-		//runGOAL_BOUNDING();
-		break;
-	}
 	case Method::JPS_PLUS:
-	{
-		//runJPS_PLUS();
 		break;
-	}
 	}
 
 	for (const auto& c : closedList)
@@ -235,7 +224,7 @@ void AStarPather::runASTAR()
 
 	Node* startNode = &nodeArr[SingleIndexConverter(req->start)];
 	openList.emplace_back(startNode);
-	startNode->onList = OPEN;
+	startNode->onList = ONLIST::OPEN;
 
 	while (!openList.empty())
 	{
@@ -248,16 +237,25 @@ void AStarPather::runASTAR()
 			return;
 		}
 
-		//todo make map bounds check here
+		//get neighbours
 		Vec3 v3PNode = pNode->pos.ConvertToVec3();
-		std::vector<Node*> neighbours =
-		{
-			&nodeArr[SingleIndexConverter(v3PNode.Up)],
-			&nodeArr[SingleIndexConverter(v3PNode.Down)],
-			&nodeArr[SingleIndexConverter(v3PNode.Left)],
-			&nodeArr[SingleIndexConverter(v3PNode.Right)]
-		};
+		std::vector<Vec3> neighbourPos; 
+		neighbourPos.emplace_back(v3PNode.Up);
+		neighbourPos.emplace_back(v3PNode.Down);
+		neighbourPos.emplace_back(v3PNode.Left);
+		neighbourPos.emplace_back(v3PNode.Down);
 
+		std::vector<Node*> neighbours; 
+		for (int i = 0; i < neighbourPos.size(); ++i)
+		{
+			Vec3 pos = neighbourPos[i];
+			if (pos.x < 0 || pos.x > gridSize.x
+				|| pos.y < 0 || pos.y > gridSize.y)
+				continue;
+			neighbours.emplace_back(&nodeArr[SingleIndexConverter(neighbourPos[i])]);
+		}
+
+		//find path
 		for (Node* n : neighbours)
 		{
 			//check if it is a wall
@@ -269,10 +267,10 @@ void AStarPather::runASTAR()
 			float h = CalculateHeuristicCost(n->pos, req->goal) * req->settings.weight;
 			float f = g + h;
 
-			if (n->onList == OPEN || n->onList == CLOSED)
+			if (n->onList == ONLIST::OPEN || n->onList == ONLIST::CLOSED)
 			{
 				openList.emplace_back(n);
-				n->onList = OPEN;
+				n->onList = ONLIST::OPEN;
 				n->fCost = f;
 				n->gCost = g;
 				n->parentNodePos = pNode->pos;
@@ -283,7 +281,7 @@ void AStarPather::runASTAR()
 			}
 
 			closedList.emplace_back(pNode);
-			pNode->onList = CLOSED;
+			pNode->onList = ONLIST::CLOSED;
 
 			//TODO check if timeout is correct
 			if (req->settings.singleStep || engine->get_timer().GetElapsedSeconds() >= 0.1f)
@@ -337,7 +335,7 @@ AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 	std::sort(openList.begin(), openList.end(), [](Node* a, Node* b) { return a->fCost > b->fCost; });
 
 	auto retNode = openList.back();
-	retNode->onList = NONE;
+	retNode->onList = ONLIST::NONE;
 
 	auto temp = openList.end() - 1;
 	openList.erase(temp);
