@@ -36,11 +36,6 @@ bool AStarPather::initialize()
 		object that std::function can wrap will suffice.
 	*/
 
-	//gridSize = Vec3((float)terrain->get_map_width(), (float)terrain->get_map_height(), 0.0f);
-
-	//openList.clear();
-	//closedList.clear();
-	//std::fill(nodeArr.begin(), nodeArr.end(), Node());
 	Messenger::listen_for_message(Messages::MAP_CHANGE, [this]()
 								  {
 									  gridSize = GridPos{ terrain->get_map_height(), terrain->get_map_width() };
@@ -54,6 +49,7 @@ bool AStarPather::initialize()
 
 								  });
 
+	sqrtTwo = static_cast<float>(sqrt(2));
 
 	return true; // return false if any errors actually occur, to stop engine initialization
 }
@@ -133,6 +129,8 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	if (pathResult == PathResult::COMPLETE)
 	{
 		GridPos pPos = terrain->get_grid_position(request.goal);
+		Node* node = nullptr;
+
 		while (pPos != terrain->get_grid_position(request.start))
 		{
 			Node* node = &nodeArr[SingleIndexConverter(pPos)];
@@ -140,10 +138,15 @@ PathResult AStarPather::compute_path(PathRequest& request)
 			pPos = node->parentNodePos;
 			terrain->set_color(pPos, Colors::LightPink);
 		}
+
+		node = &nodeArr[SingleIndexConverter(pPos)];
+		request.path.emplace_front(terrain->get_world_position(node->pos));
+		terrain->set_color(pPos, Colors::LightPink);
 	}
 
 	//handle rubberbanding and smoothing
-
+	rubberbanding();
+	smoothing();
 
 	//draw grid with color
 	auto openColor = Colors::BlueViolet;
@@ -257,6 +260,9 @@ void AStarPather::runASTAR(PathRequest& request)
 
 		if (pNode->pos == terrain->get_grid_position(request.goal))
 		{
+			closedList.emplace_back(pNode);
+			pNode->onList = ONLIST::CLOSED;
+
 			pathResult = PathResult::COMPLETE;
 			return;
 		}
@@ -264,16 +270,17 @@ void AStarPather::runASTAR(PathRequest& request)
 		//get all 8 neighbours
 		GridPos tNode = pNode->pos;
 		std::unordered_map<DIRECTION, GridPos> neighbourPos;
-		neighbourPos.insert({ DIRECTION::UP, GridPos{ tNode.row + 1, tNode.col } }); //up
-		neighbourPos.insert({ DIRECTION::DOWN, GridPos{ tNode.row - 1, tNode.col } }); //down
-		neighbourPos.insert({ DIRECTION::RIGHT, GridPos{ tNode.row, tNode.col + 1 } }); //right
-		neighbourPos.insert({ DIRECTION::LEFT, GridPos{ tNode.row, tNode.col - 1 } }); //left
-		neighbourPos.insert({ DIRECTION::UP_LEFT, GridPos{ tNode.row + 1, tNode.col - 1 } }); //up-left
-		neighbourPos.insert({ DIRECTION::UP_RIGHT, GridPos{ tNode.row + 1, tNode.col + 1 } }); //up-right
-		neighbourPos.insert({ DIRECTION::DOWN_LEFT, GridPos{ tNode.row - 1, tNode.col - 1 } }); //down-left
-		neighbourPos.insert({ DIRECTION::DOWN_RIGHT, GridPos{ tNode.row - 1, tNode.col + 1 } }); //down-right
+		neighbourPos.insert({ DIRECTION::UP, GridPos{ tNode.row + 1, tNode.col } });
+		neighbourPos.insert({ DIRECTION::DOWN, GridPos{ tNode.row - 1, tNode.col } });
+		neighbourPos.insert({ DIRECTION::LEFT, GridPos{ tNode.row, tNode.col - 1 } });
+		neighbourPos.insert({ DIRECTION::RIGHT, GridPos{ tNode.row, tNode.col + 1 } });
+		neighbourPos.insert({ DIRECTION::UP_LEFT, GridPos{ tNode.row + 1, tNode.col - 1 } });
+		neighbourPos.insert({ DIRECTION::UP_RIGHT, GridPos{ tNode.row + 1, tNode.col + 1 } });
+		neighbourPos.insert({ DIRECTION::DOWN_LEFT, GridPos{ tNode.row - 1, tNode.col - 1 } });
+		neighbourPos.insert({ DIRECTION::DOWN_RIGHT, GridPos{ tNode.row - 1, tNode.col + 1 } });
 
-		std::vector<Node*> neighbours;
+		std::unordered_map<DIRECTION, Node*> neighbours;
+		//std::vector<Node*> neighbours;
 		for (const auto& np : neighbourPos)
 		{
 			GridPos pos = np.second;
@@ -312,18 +319,18 @@ void AStarPather::runASTAR(PathRequest& request)
 				break;
 			}
 
-			neighbours.emplace_back(&nodeArr[SingleIndexConverter(np.second)]);
+			neighbours.insert({ np.first, &nodeArr[SingleIndexConverter(np.second)] });
 		}
 
 		//find path
-		for (Node* n : neighbours)
+		for (const auto& [dir, n] : neighbours)
 		{
 			//check if it is a wall
 			if (terrain->is_wall(n->pos.row, n->pos.col))
 				continue;
 
 			//calculate cost
-			float g = pNode->gCost + 1;
+			float g = static_cast<int>(dir) < 4 ? pNode->gCost + 1 : pNode->gCost + sqrtTwo;
 			float h = CalculateHeuristicCost(n->pos, terrain->get_grid_position(request.goal), request.settings.heuristic) * request.settings.weight;
 			float f = g + h;
 
@@ -372,7 +379,7 @@ float AStarPather::CalculateHeuristicCost(const GridPos& start, const GridPos& e
 	{
 	case Heuristic::OCTILE:
 	{
-		return std::min(diffX, diffY) * static_cast<float>(sqrt(2)) + std::max(diffX, diffY) - std::min(diffX, diffY);
+		return std::min(diffX, diffY) * sqrtTwo + std::max(diffX, diffY) - std::min(diffX, diffY);
 	}
 	case Heuristic::CHEBYSHEV:
 	{
@@ -396,7 +403,6 @@ AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 	std::sort(openList.begin(), openList.end(), [](Node* a, Node* b) { return a->fCost > b->fCost; });
 
 	auto retNode = openList.back();
-	//retNode->onList = ONLIST::NONE;
 
 	auto temp = openList.end() - 1;
 	openList.erase(temp);
@@ -427,6 +433,16 @@ void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 		child->gCost = newG;
 		child->parentNodePos = parent->pos;
 	}
+}
+
+void AStarPather::rubberbanding()
+{
+
+}
+
+void AStarPather::smoothing()
+{
+
 }
 
 

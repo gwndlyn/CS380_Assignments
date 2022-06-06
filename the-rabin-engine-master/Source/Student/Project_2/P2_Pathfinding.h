@@ -60,6 +60,7 @@ public:
 	//reference varables 
 	PathResult pathResult;
 	GridPos gridSize;
+	float sqrtTwo;
 
 	//helper functions for nodes
 	float CalculateHeuristicCost(const GridPos& start, const GridPos& end, const Heuristic& h);
@@ -70,7 +71,7 @@ public:
 	//algo functions
 	void runASTAR(PathRequest& request);
 
-	//void rubberbanding();
-	//void smoothing();
+	void rubberbanding();
+	void smoothing();
 
 };
