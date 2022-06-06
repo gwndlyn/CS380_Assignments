@@ -145,18 +145,24 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	}
 
 	//handle rubberbanding and smoothing
-	rubberbanding();
-	smoothing();
+	if (request.settings.rubberBanding)
+		rubberbanding();
+
+	if (request.settings.smoothing)
+		smoothing();
 
 	//draw grid with color
-	auto openColor = Colors::BlueViolet;
-	auto closedColor = Colors::LightPink;
+	if (request.settings.debugColoring)
+	{
+		auto openColor = Colors::BlueViolet;
+		auto closedColor = Colors::LightPink;
 
-	for (const Node* o : openList)
-		terrain->set_color(o->pos, openColor);
+		for (const Node* o : openList)
+			terrain->set_color(o->pos, openColor);
 
-	for (const Node* c : closedList)
-		terrain->set_color(c->pos, closedColor);
+		for (const Node* c : closedList)
+			terrain->set_color(c->pos, closedColor);
+	}
 
 	return pathResult;
 
@@ -331,8 +337,8 @@ void AStarPather::runASTAR(PathRequest& request)
 
 			//calculate cost
 			float g = static_cast<int>(dir) < 4 ? pNode->gCost + 1 : pNode->gCost + sqrtTwo;
-			float h = CalculateHeuristicCost(n->pos, terrain->get_grid_position(request.goal), request.settings.heuristic) * request.settings.weight;
-			float f = g + h;
+			float h = CalculateHeuristicCost(n->pos, terrain->get_grid_position(request.goal), request.settings.heuristic);
+			float f = g + h * request.settings.weight;
 
 			if (n->onList == ONLIST::NONE)
 			{
