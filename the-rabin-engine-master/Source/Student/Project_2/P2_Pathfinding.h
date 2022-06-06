@@ -1,13 +1,16 @@
 #pragma once
 #include "Misc/PathfindingDetails.hpp"
 
-struct Vec2Int
+enum class DIRECTION
 {
-	int x, y;
-
-	Vec2Int(int _x = 0, int _y = 0);
-	Vec2Int(Vec3 v);
-	Vec3 ConvertToVec3();
+	UP, 
+	DOWN,
+	LEFT,
+	RIGHT,
+	UP_LEFT,
+	UP_RIGHT,
+	DOWN_LEFT,
+	DOWN_RIGHT
 };
 
 class AStarPather
@@ -41,12 +44,12 @@ public:
 
 	struct Node
 	{
-		Vec2Int pos;
-		Vec2Int parentNodePos;
+		GridPos pos;
+		GridPos parentNodePos;
 		float fCost, gCost;
 		ONLIST onList;
 
-		Node(Vec2Int p = Vec2Int(), Vec2Int par = Vec2Int(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = ONLIST::NONE);
+		Node(GridPos p = GridPos(), GridPos par = GridPos(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = ONLIST::NONE);
 	};
 
 	//variables
@@ -56,15 +59,18 @@ public:
 
 	//reference varables 
 	PathResult pathResult;
-	Vec2Int gridSize;
+	GridPos gridSize;
 
 	//helper functions for nodes
-	float CalculateHeuristicCost(const Vec2Int& start, const Vec2Int& end, const Heuristic& h);
+	float CalculateHeuristicCost(const GridPos& start, const GridPos& end, const Heuristic& h);
 	void UpdateCost(Node* child, Node* parent, float newF, float newG);
 	Node* PopCheapestOpenListNode();
-	int SingleIndexConverter(const Vec2Int& pos);
+	int SingleIndexConverter(const GridPos& pos);
 
 	//algo functions
 	void runASTAR(PathRequest& request);
+
+	//void rubberbanding();
+	//void smoothing();
 
 };
