@@ -71,7 +71,7 @@ public:
 	//algo functions
 	void runASTAR(PathRequest& request);
 
-	void rubberbanding();
+	void rubberbanding(PathRequest& request);
 	void smoothing();
 
 };

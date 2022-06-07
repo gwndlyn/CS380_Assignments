@@ -131,22 +131,31 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		GridPos pPos = terrain->get_grid_position(request.goal);
 		Node* node = nullptr;
 
+		std::cout << "My output" << std::endl;
+
 		while (pPos != terrain->get_grid_position(request.start))
 		{
 			Node* node = &nodeArr[SingleIndexConverter(pPos)];
 			request.path.emplace_front(terrain->get_world_position(node->pos));
 			pPos = node->parentNodePos;
 			terrain->set_color(pPos, Colors::LightPink);
+
+			//std::cout << "[ " << pPos.col << ", " << pPos.row << " ]" << " : " << node->fCost << std::endl;
 		}
 
 		node = &nodeArr[SingleIndexConverter(pPos)];
 		request.path.emplace_front(terrain->get_world_position(node->pos));
 		terrain->set_color(pPos, Colors::LightPink);
+
+		//std::cout << "[ " << pPos.col << ", " << pPos.row << " ]" << " : " << node->fCost << std::endl;
+
+		std::cout << request.path.size() << std::endl;
 	}
+
 
 	//handle rubberbanding and smoothing
 	if (request.settings.rubberBanding)
-		rubberbanding();
+		rubberbanding(request);
 
 	if (request.settings.smoothing)
 		smoothing();
@@ -441,11 +450,69 @@ void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 	}
 }
 
-void AStarPather::rubberbanding()
+//untested
+void AStarPather::rubberbanding(PathRequest& request)
 {
+	if (request.path.size() < 3)
+		return;
+
+	std::vector<GridPos> gridPath;
+	for (const auto& p : request.path)
+		gridPath.emplace_back(terrain->get_grid_position(p));
+	std::reverse(gridPath.begin(), gridPath.end());
+
+	size_t str = gridPath.size() - 3;
+	size_t mid = gridPath.size() - 2;
+	size_t end = gridPath.size() - 1;
+
+	while (str != mid)
+	{
+		GridPos minPos = GridPos{ std::min(gridPath[str].row, gridPath[end].row), std::min(gridPath[str].col, gridPath[end].col) };
+		GridPos maxPos = GridPos{ std::max(gridPath[str].row, gridPath[end].row), std::max(gridPath[str].col, gridPath[end].col) };
+
+		bool hasWall = false;
+
+		for (int x = 0; x <= maxPos.col - minPos.col; ++x)
+		{
+			for (int y = 0; y <= maxPos.row - minPos.row; ++y)
+			{
+				std::cout << "checked" << std::endl;
+
+				if (terrain->is_wall(minPos.row + y, minPos.col + x))
+				{
+					hasWall = true;
+					std::cout << "set true!" << std::endl;
+				}
+			}
+		}
+
+		//do not remove anything, move all 3 pointers
+		if (hasWall)
+		{
+			--mid;
+			--end;
+		}
+		//remove midpoint, move str and mid, do not move end
+		else
+		{
+			auto exMid = std::find(gridPath.begin(), gridPath.end(), gridPath[mid]);
+			gridPath.erase(exMid);
+
+			mid = str;
+			--end;
+		}
+
+		if (str != 0)
+			--str;
+	}
+
+	request.path.clear();
+	for (const auto& g : gridPath)
+		request.path.emplace_front(terrain->get_world_position(g));
 
 }
 
+//todo
 void AStarPather::smoothing()
 {
 
