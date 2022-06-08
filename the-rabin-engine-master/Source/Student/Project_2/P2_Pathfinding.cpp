@@ -122,6 +122,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 	case Method::FLOYD_WARSHALL:
 	case Method::GOAL_BOUNDING:
 	case Method::JPS_PLUS:
+		return PathResult::IMPOSSIBLE;
 		break;
 	}
 
@@ -131,25 +132,17 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		GridPos pPos = terrain->get_grid_position(request.goal);
 		Node* node = nullptr;
 
-		//std::cout << "\n---My output---" << std::endl;
-
 		while (pPos != terrain->get_grid_position(request.start))
 		{
 			Node* node = &nodeArr[SingleIndexConverter(pPos)];
 			request.path.emplace_front(terrain->get_world_position(node->pos));
 			pPos = node->parentNodePos;
 			terrain->set_color(pPos, Colors::LightPink);
-
-			//std::cout << "[ " << pPos.col << ", " << pPos.row << " ]" << " : " << node->fCost << std::endl;
 		}
 
 		node = &nodeArr[SingleIndexConverter(pPos)];
 		request.path.emplace_front(terrain->get_world_position(node->pos));
 		terrain->set_color(pPos, Colors::LightPink);
-
-		//std::cout << "[ " << pPos.col << ", " << pPos.row << " ]" << " : " << node->fCost << std::endl;
-
-		//std::cout << request.path.size() << std::endl;
 
 		//handle rubberbanding and smoothing
 		if (request.settings.rubberBanding)
