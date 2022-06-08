@@ -131,7 +131,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		GridPos pPos = terrain->get_grid_position(request.goal);
 		Node* node = nullptr;
 
-		std::cout << "\n---My output---" << std::endl;
+		//std::cout << "\n---My output---" << std::endl;
 
 		while (pPos != terrain->get_grid_position(request.start))
 		{
@@ -376,15 +376,21 @@ void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 
 	if (exNode != closedList.end())
 	{
-		openList.push_back(*exNode);
+		openList.emplace_back(*exNode);
 		(*exNode)->onList = ONLIST::OPEN;
 
 		closedList.erase(exNode);
-
-		child->fCost = newF;
-		child->gCost = newG;
-		child->parentNodePos = parent->pos;
 	}
+	else
+	{
+		openList.emplace_back(child);
+		child->onList = ONLIST::OPEN;
+	}
+
+	child->fCost = newF;
+	child->gCost = newG;
+	child->parentNodePos = parent->pos;
+
 }
 
 void AStarPather::rubberbanding(PathRequest& request)
