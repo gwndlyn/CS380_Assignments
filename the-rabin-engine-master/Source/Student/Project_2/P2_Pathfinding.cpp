@@ -1,7 +1,7 @@
 #include <pch.h>
-#include <pch.h>
 #include "Projects/ProjectTwo.h"
 #include "P2_Pathfinding.h"
+#include <map>
 
 #pragma region Extra Credit
 bool ProjectTwo::implemented_floyd_warshall()
@@ -215,7 +215,7 @@ void AStarPather::runASTAR(PathRequest& request)
 
 		//get all 8 neighbours
 		GridPos tNode = pNode->pos;
-		std::unordered_map<DIRECTION, GridPos> neighbourPos;
+		std::map<DIRECTION, GridPos> neighbourPos;
 		neighbourPos.insert({ DIRECTION::UP, GridPos{ tNode.row + 1, tNode.col } });
 		neighbourPos.insert({ DIRECTION::DOWN, GridPos{ tNode.row - 1, tNode.col } });
 		neighbourPos.insert({ DIRECTION::LEFT, GridPos{ tNode.row, tNode.col - 1 } });
@@ -225,7 +225,7 @@ void AStarPather::runASTAR(PathRequest& request)
 		neighbourPos.insert({ DIRECTION::DOWN_LEFT, GridPos{ tNode.row - 1, tNode.col - 1 } });
 		neighbourPos.insert({ DIRECTION::DOWN_RIGHT, GridPos{ tNode.row - 1, tNode.col + 1 } });
 
-		std::unordered_map<DIRECTION, Node*> neighbours;
+		std::map<DIRECTION, Node*> neighbours;
 		for (const auto& np : neighbourPos)
 		{
 			GridPos pos = np.second;
