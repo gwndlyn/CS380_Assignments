@@ -131,7 +131,7 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		GridPos pPos = terrain->get_grid_position(request.goal);
 		Node* node = nullptr;
 
-		std::cout << "My output" << std::endl;
+		std::cout << "\n---My output---" << std::endl;
 
 		while (pPos != terrain->get_grid_position(request.start))
 		{
@@ -149,16 +149,18 @@ PathResult AStarPather::compute_path(PathRequest& request)
 
 		//std::cout << "[ " << pPos.col << ", " << pPos.row << " ]" << " : " << node->fCost << std::endl;
 
-		std::cout << request.path.size() << std::endl;
+		//std::cout << request.path.size() << std::endl;
+
+		//handle rubberbanding and smoothing
+		if (request.settings.rubberBanding)
+			rubberbanding(request);
+
+		if (request.settings.smoothing)
+		{
+			addPointsBackIn(request);
+			smoothing(request);
+		}
 	}
-
-
-	//handle rubberbanding and smoothing
-	if (request.settings.rubberBanding)
-		rubberbanding(request);
-
-	if (request.settings.smoothing)
-		smoothing();
 
 	//draw grid with color
 	if (request.settings.debugColoring)
@@ -175,14 +177,6 @@ PathResult AStarPather::compute_path(PathRequest& request)
 
 	return pathResult;
 
-	// Just sample code, safe to delete
-	//GridPos start = terrain->get_grid_position(request.start);
-	//GridPos goal = terrain->get_grid_position(request.goal);
-	//terrain->set_color(start, Colors::Orange);
-	//terrain->set_color(goal, Colors::Orange);
-	//request.path.push_back(request.start);
-	//request.path.push_back(request.goal);
-	//return PathResult::COMPLETE;
 }
 
 void AStarPather::runASTAR(PathRequest& request)
@@ -205,62 +199,6 @@ void AStarPather::runASTAR(PathRequest& request)
 	//		abort search for nowand resume next frame(RETURN “working”).
 	//}
 	//Open List empty, thus no path possible(RETURN “fail”).
-
-	/*
-	openList.emplace_back(Node{ req.start , 0.0f });
-
-	while (!openList.empty())
-	{
-		Node parentNode = *openList.begin();
-		std::find(openList.begin(), openList.end(),
-				  [&](Node& a) { parentNode = (parentNode.fCost > a.fCost) ? parentNode : a; });
-		openList.erase(std::find(openList.begin(), openList.end(), parentNode));
-
-		if (parentNode.pos == req.start)
-		{
-			pathResult = PathResult::COMPLETE;
-			return;
-		}
-
-		std::vector<Vec3> neighbours =
-		{
-			parentNode.pos.Up,
-			parentNode.pos.Down,
-			parentNode.pos.Left,
-			parentNode.pos.Right
-		};
-
-		for (Vec3& n : neighbours)
-		{
-			//todo check if this is right
-			float cost = parentNode.cost + (CalculateHeuristicCost(n) * req.settings.weight);
-
-			if ((std::find(openList.begin(), openList.end(), n) != openList.end())
-				|| (std::find(closedList.begin(), closedList.end(), n) != closedList.end()))
-			{
-				openList.emplace_back(Node{ n, cost });
-			}
-			else
-			{
-				//if (openList)
-			}
-
-			closedList.emplace_back(parentNode);
-
-			//todo add timeout
-			if (req.settings.singleStep)
-			{
-				pathResult = PathResult::PROCESSING;
-				return;
-			}
-		}
-	}
-	if (openList.empty())
-	{
-		pathResult = PathResult::IMPOSSIBLE;
-		return;
-	}
-	*/
 
 	if (request.newRequest)
 	{
@@ -295,7 +233,6 @@ void AStarPather::runASTAR(PathRequest& request)
 		neighbourPos.insert({ DIRECTION::DOWN_RIGHT, GridPos{ tNode.row - 1, tNode.col + 1 } });
 
 		std::unordered_map<DIRECTION, Node*> neighbours;
-		//std::vector<Node*> neighbours;
 		for (const auto& np : neighbourPos)
 		{
 			GridPos pos = np.second;
@@ -450,7 +387,6 @@ void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
 	}
 }
 
-//untested
 void AStarPather::rubberbanding(PathRequest& request)
 {
 	if (request.path.size() < 3)
@@ -476,12 +412,9 @@ void AStarPather::rubberbanding(PathRequest& request)
 		{
 			for (int y = 0; y <= maxPos.row - minPos.row; ++y)
 			{
-				std::cout << "checked" << std::endl;
-
 				if (terrain->is_wall(minPos.row + y, minPos.col + x))
 				{
 					hasWall = true;
-					std::cout << "set true!" << std::endl;
 				}
 			}
 		}
@@ -512,10 +445,71 @@ void AStarPather::rubberbanding(PathRequest& request)
 
 }
 
-//todo
-void AStarPather::smoothing()
+void AStarPather::addPointsBackIn(PathRequest& request)
 {
+	auto& rPath = request.path;
+	for (std::list<Vec3>::iterator it = rPath.begin(); it != rPath.end();)
+	{
+		std::list<Vec3>::iterator start, end;
+		start = it;
+		end = ++it;
 
+		if (end == rPath.end())
+			return;
+
+		if (Vec3::Distance(*start, *end) > 1.5f)
+		{
+			Vec3 halfSum = (*start + *end) / 2;
+			rPath.insert(it, halfSum);
+			it = start;
+		}
+	}
+}
+
+void AStarPather::smoothing(PathRequest& request)
+{
+	auto& pPath = request.path;
+
+	if (pPath.size() < 2)
+		return;
+
+	WaypointList::iterator start = pPath.begin();
+	WaypointList::iterator end = pPath.end(); --end;
+	WaypointList::iterator p1, p2, p3, p4;
+	p1 = p2 = p3 = p4 = start;
+
+	if (pPath.size() != 2)
+	{
+		++p3;
+		++p4;
+		++p4;
+	}
+	else
+	{
+		++p3;
+		++p4;
+	}
+
+	while (true)
+	{
+		Vec3 newPt;
+		for (int i = 1; i < 4; ++i)
+		{
+			newPt = Vec3::CatmullRom(*p1, *p2, *p3, *p4, i * 0.25f);
+			pPath.insert(p3, newPt);
+		}
+
+		if (p3 == p4)
+			break;
+
+		if (p1 != p2)
+			p1 = p2;
+		p2 = p3;
+		p3 = p4;
+
+		if (p4 != end) 
+			++p4;
+	}
 }
 
 

@@ -72,6 +72,7 @@ public:
 	void runASTAR(PathRequest& request);
 
 	void rubberbanding(PathRequest& request);
-	void smoothing();
+	void addPointsBackIn(PathRequest& request);
+	void smoothing(PathRequest& request);
 
 };
