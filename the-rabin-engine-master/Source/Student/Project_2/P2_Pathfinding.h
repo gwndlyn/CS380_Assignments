@@ -1,16 +1,21 @@
 #pragma once
+
+#include <unordered_set>
+
 #include "Misc/PathfindingDetails.hpp"
 
-enum class DIRECTION
+enum DIRECTION
 {
-	UP, 
+	UP,
 	DOWN,
 	LEFT,
 	RIGHT,
 	UP_LEFT,
 	UP_RIGHT,
 	DOWN_LEFT,
-	DOWN_RIGHT
+	DOWN_RIGHT,
+
+	MAX
 };
 
 class AStarPather
@@ -35,36 +40,48 @@ public:
 		makes sense to you.
 	*/
 
-	enum class ONLIST
+	enum ONLIST
 	{
 		NONE,
 		OPEN,
 		CLOSED
 	};
 
+
 	struct Node
 	{
 		GridPos pos;
 		GridPos parentNodePos;
-		float fCost, gCost;
-		ONLIST onList;
+		float fCost;
+		int gCost;
 
-		Node(GridPos p = GridPos(), GridPos par = GridPos(), float f = FLT_MAX, float g = 0.0f, ONLIST ol = ONLIST::NONE);
+		ONLIST onList { NONE };
+
+		Node(GridPos p = GridPos(), GridPos par = GridPos(), float f = FLT_MAX, int g = 0.0f);
+
+		void Reset();
+	};
+
+	struct NodeCmp
+	{
+		bool operator()(const Node* lhs, const Node* rhs) const
+		{
+			return lhs->fCost > rhs->fCost;
+		}
 	};
 
 	//variables
-	std::array<Node, 1600> nodeArr;
-	std::vector<Node*> openList;
-	std::vector<Node*> closedList;
+	std::vector<Node> nodeArr;
+	std::priority_queue<Node*, std::vector<Node*>, NodeCmp> openList;
+	std::unordered_set<Node*> closedList;
 
 	//reference varables 
 	PathResult pathResult;
 	GridPos gridSize;
-	float sqrtTwo;
 
 	//helper functions for nodes
 	float CalculateHeuristicCost(const GridPos& start, const GridPos& end, const Heuristic& h);
-	void UpdateCost(Node* child, Node* parent, float newF, float newG);
+	void UpdateCost(Node* child, Node* parent, float newF, int newG);
 	Node* PopCheapestOpenListNode();
 	int SingleIndexConverter(const GridPos& pos);
 

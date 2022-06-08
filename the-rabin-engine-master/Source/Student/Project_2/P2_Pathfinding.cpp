@@ -1,7 +1,8 @@
 #include <pch.h>
 #include "Projects/ProjectTwo.h"
 #include "P2_Pathfinding.h"
-#include <map>
+
+constexpr int diag = 14, linear = 10;
 
 #pragma region Extra Credit
 bool ProjectTwo::implemented_floyd_warshall()
@@ -36,20 +37,19 @@ bool AStarPather::initialize()
 		object that std::function can wrap will suffice.
 	*/
 
-	Messenger::listen_for_message(Messages::MAP_CHANGE, [this]()
-								  {
-									  gridSize = GridPos{ terrain->get_map_height(), terrain->get_map_width() };
+	Messenger::listen_for_message(Messages::MAP_CHANGE, [this] ()
+		{
+			gridSize = GridPos { terrain->get_map_height(), terrain->get_map_width() };
 
-									  openList.clear();
-									  closedList.clear();
+			openList = {};
+			closedList.clear();
 
-									  for (int x = 0; x < gridSize.col; ++x)
-										  for (int y = 0; y < gridSize.row; ++y)
-											  nodeArr[SingleIndexConverter(GridPos{ y, x })].pos = GridPos{ y, x };
+			nodeArr = std::vector<Node>(gridSize.col * gridSize.row);
 
-								  });
-
-	sqrtTwo = static_cast<float>(sqrt(2));
+			for (int x = 0; x < gridSize.col; ++x)
+				for (int y = 0; y < gridSize.row; ++y)
+					nodeArr[SingleIndexConverter(GridPos { y, x })].pos = GridPos { y, x };
+		});
 
 	return true; // return false if any errors actually occur, to stop engine initialization
 }
@@ -98,32 +98,29 @@ PathResult AStarPather::compute_path(PathRequest& request)
 
 	if (request.newRequest)
 	{
-		openList.clear();
+		openList = {};
 		closedList.clear();
 
 		for (int x = 0; x < gridSize.col; ++x)
 			for (int y = 0; y < gridSize.row; ++y)
 			{
-				nodeArr[SingleIndexConverter(GridPos{ y, x })].fCost = 0;
-				nodeArr[SingleIndexConverter(GridPos{ y, x })].gCost = 0;
-				nodeArr[SingleIndexConverter(GridPos{ y, x })].onList = ONLIST::NONE;
-				nodeArr[SingleIndexConverter(GridPos{ y, x })].parentNodePos = GridPos();
+				nodeArr[SingleIndexConverter(GridPos { y, x })].Reset();
 			}
 	}
 
 	//Run chosen algo
 	switch (request.settings.method)
 	{
-	case Method::ASTAR:
-	{
-		runASTAR(request);
-		break;
-	}
-	case Method::FLOYD_WARSHALL:
-	case Method::GOAL_BOUNDING:
-	case Method::JPS_PLUS:
-		return PathResult::IMPOSSIBLE;
-		break;
+		case Method::ASTAR:
+		{
+			runASTAR(request);
+			break;
+		}
+		case Method::FLOYD_WARSHALL:
+		case Method::GOAL_BOUNDING:
+		case Method::JPS_PLUS:
+			return PathResult::IMPOSSIBLE;
+			break;
 	}
 
 	//set up path
@@ -161,8 +158,11 @@ PathResult AStarPather::compute_path(PathRequest& request)
 		auto openColor = Colors::BlueViolet;
 		auto closedColor = Colors::LightPink;
 
-		for (const Node* o : openList)
-			terrain->set_color(o->pos, openColor);
+		for (int i = 0; i < openList.size(); ++i)
+		{
+			const Node* const* ptr = (&openList.top()) + i;
+			terrain->set_color((*ptr)->pos, openColor);
+		}
 
 		for (const Node* c : closedList)
 			terrain->set_color(c->pos, closedColor);
@@ -193,164 +193,155 @@ void AStarPather::runASTAR(PathRequest& request)
 	//}
 	//Open List empty, thus no path possible(RETURN “fail”).
 
+	const GridPos startPos = terrain->get_grid_position(request.start);
+	const GridPos endPos = terrain->get_grid_position(request.goal);
+
 	if (request.newRequest)
 	{
-		Node* startNode = &nodeArr[SingleIndexConverter(terrain->get_grid_position(request.start))];
-		openList.emplace_back(startNode);
-		startNode->onList = ONLIST::OPEN;
+		Node* startNode = &nodeArr[SingleIndexConverter(startPos)];
+		openList.emplace(startNode);
+		startNode->onList = OPEN;
 	}
 
 	while (!openList.empty())
 	{
 		Node* pNode = PopCheapestOpenListNode();
+		const GridPos& tNode = pNode->pos;
 
-		if (pNode->pos == terrain->get_grid_position(request.goal))
+		if (tNode == endPos)
 		{
-			closedList.emplace_back(pNode);
-			pNode->onList = ONLIST::CLOSED;
-
+			closedList.emplace(pNode);
 			pathResult = PathResult::COMPLETE;
 			return;
 		}
 
 		//get all 8 neighbours
-		GridPos tNode = pNode->pos;
-		std::map<DIRECTION, GridPos> neighbourPos;
-		neighbourPos.insert({ DIRECTION::UP, GridPos{ tNode.row + 1, tNode.col } });
-		neighbourPos.insert({ DIRECTION::DOWN, GridPos{ tNode.row - 1, tNode.col } });
-		neighbourPos.insert({ DIRECTION::LEFT, GridPos{ tNode.row, tNode.col - 1 } });
-		neighbourPos.insert({ DIRECTION::RIGHT, GridPos{ tNode.row, tNode.col + 1 } });
-		neighbourPos.insert({ DIRECTION::UP_LEFT, GridPos{ tNode.row + 1, tNode.col - 1 } });
-		neighbourPos.insert({ DIRECTION::UP_RIGHT, GridPos{ tNode.row + 1, tNode.col + 1 } });
-		neighbourPos.insert({ DIRECTION::DOWN_LEFT, GridPos{ tNode.row - 1, tNode.col - 1 } });
-		neighbourPos.insert({ DIRECTION::DOWN_RIGHT, GridPos{ tNode.row - 1, tNode.col + 1 } });
+		std::vector<GridPos> neighbourPos(DIRECTION::MAX);
 
-		std::map<DIRECTION, Node*> neighbours;
-		for (const auto& np : neighbourPos)
+		neighbourPos[DIRECTION::UP] = GridPos { tNode.row + 1, tNode.col };
+		neighbourPos[DIRECTION::DOWN] = GridPos { tNode.row - 1, tNode.col };
+		neighbourPos[DIRECTION::LEFT] = GridPos { tNode.row, tNode.col - 1 };
+		neighbourPos[DIRECTION::RIGHT] = GridPos { tNode.row, tNode.col + 1 };
+		neighbourPos[DIRECTION::UP_LEFT] = GridPos { tNode.row + 1, tNode.col - 1 };
+		neighbourPos[DIRECTION::UP_RIGHT] = GridPos { tNode.row + 1, tNode.col + 1 };
+		neighbourPos[DIRECTION::DOWN_LEFT] = GridPos { tNode.row - 1, tNode.col - 1 };
+		neighbourPos[DIRECTION::DOWN_RIGHT] = GridPos { tNode.row - 1, tNode.col + 1 };
+
+		for (int i = 0; i < DIRECTION::MAX; ++i)
 		{
-			GridPos pos = np.second;
-			if (pos.col < 0 || pos.col >= gridSize.col
-				|| pos.row < 0 || pos.row >= gridSize.row)
+			const GridPos& pos = neighbourPos[i];
+
+			if (pos.col < 0 || pos.col >= gridSize.col || pos.row < 0 || pos.row >= gridSize.row)
+			{
 				continue;
-
-			DIRECTION dir = np.first;
-			switch (dir)
-			{
-			case DIRECTION::UP_LEFT:
-			{
-				if (terrain->is_wall(neighbourPos[DIRECTION::UP]) || terrain->is_wall(neighbourPos[DIRECTION::LEFT]))
-					continue;
-				break;
-			}
-			case DIRECTION::UP_RIGHT:
-			{
-				if (terrain->is_wall(neighbourPos[DIRECTION::UP]) || terrain->is_wall(neighbourPos[DIRECTION::RIGHT]))
-					continue;
-				break;
-			}
-			case DIRECTION::DOWN_LEFT:
-			{
-				if (terrain->is_wall(neighbourPos[DIRECTION::DOWN]) || terrain->is_wall(neighbourPos[DIRECTION::LEFT]))
-					continue;
-				break;
-			}
-			case DIRECTION::DOWN_RIGHT:
-			{
-				if (terrain->is_wall(neighbourPos[DIRECTION::DOWN]) || terrain->is_wall(neighbourPos[DIRECTION::RIGHT]))
-					continue;
-				break;
-			}
-			default:
-				break;
 			}
 
-			neighbours.insert({ np.first, &nodeArr[SingleIndexConverter(np.second)] });
-		}
-
-		//find path
-		for (const auto& [dir, n] : neighbours)
-		{
-			//check if it is a wall
-			if (terrain->is_wall(n->pos.row, n->pos.col))
+			if (terrain->is_wall(pos))
+			{
 				continue;
+			}
+
+			auto adjNode = &nodeArr[SingleIndexConverter(pos)];
+
+			if (closedList.find(adjNode) != closedList.end())
+			{
+				continue;
+			}
+
+			switch (i)
+			{
+				case DIRECTION::UP_LEFT:
+				{
+					if (terrain->is_wall(neighbourPos[DIRECTION::UP]) || terrain->is_wall(neighbourPos[DIRECTION::LEFT]))
+						continue;
+					break;
+				}
+				case DIRECTION::UP_RIGHT:
+				{
+					if (terrain->is_wall(neighbourPos[DIRECTION::UP]) || terrain->is_wall(neighbourPos[DIRECTION::RIGHT]))
+						continue;
+					break;
+				}
+				case DIRECTION::DOWN_LEFT:
+				{
+					if (terrain->is_wall(neighbourPos[DIRECTION::DOWN]) || terrain->is_wall(neighbourPos[DIRECTION::LEFT]))
+						continue;
+					break;
+				}
+				case DIRECTION::DOWN_RIGHT:
+				{
+					if (terrain->is_wall(neighbourPos[DIRECTION::DOWN]) || terrain->is_wall(neighbourPos[DIRECTION::RIGHT]))
+						continue;
+					break;
+				}
+				default:
+					break;
+			}
 
 			//calculate cost
-			float g = static_cast<int>(dir) < 4 ? pNode->gCost + 1 : pNode->gCost + sqrtTwo;
-			float h = CalculateHeuristicCost(n->pos, terrain->get_grid_position(request.goal), request.settings.heuristic);
-			float f = g + h * request.settings.weight;
+			int g = (i < 4) ? pNode->gCost + linear : pNode->gCost + diag;
+			float h = CalculateHeuristicCost(adjNode->pos, endPos, request.settings.heuristic);
+			float f = (float)g + h * request.settings.weight;
 
-			if (n->onList == ONLIST::NONE)
-			{
-				openList.emplace_back(n);
-				n->onList = ONLIST::OPEN;
-				n->fCost = f;
-				n->gCost = g;
-				n->parentNodePos = pNode->pos;
-			}
-			else
-			{
-				UpdateCost(n, pNode, f, g);
-			}
+			UpdateCost(adjNode, pNode, f, g);
 		}
 
-		closedList.emplace_back(pNode);
-		pNode->onList = ONLIST::CLOSED;
+		pNode->onList = CLOSED;
+		closedList.emplace(pNode);
 
 		if (request.settings.singleStep) // || engine->get_timer().GetElapsedSeconds() >= 1.0f)
 		{
 			pathResult = PathResult::PROCESSING;
 			return;
 		}
-
-	}
-	if (openList.empty())
-	{
-		pathResult = PathResult::IMPOSSIBLE;
-		return;
 	}
 
+	pathResult = PathResult::IMPOSSIBLE;
+	return;
 }
 
-AStarPather::Node::Node(GridPos p, GridPos par, float f, float g, ONLIST ol)
-	: pos{ p }, parentNodePos{ par }, fCost{ f }, gCost{ g }, onList{ ol } { }
+AStarPather::Node::Node(GridPos p, GridPos par, float f, int g)
+	: pos { p }, parentNodePos { par }, fCost { f }, gCost { g } { }
+
+void AStarPather::Node::Reset()
+{
+	*this = { pos };
+}
 
 float AStarPather::CalculateHeuristicCost(const GridPos& start, const GridPos& end, const Heuristic& h)
 {
 	//Grid heuristic distance calculations
-	float diffX = static_cast<float>(std::abs(start.col - end.col));
-	float diffY = static_cast<float>(std::abs(start.row - end.row));
+	int diffX = std::abs(end.col - start.col);
+	int diffY = std::abs(end.row - start.row);
 
 	switch (h)
 	{
-	case Heuristic::OCTILE:
-	{
-		return std::min(diffX, diffY) * sqrtTwo + std::max(diffX, diffY) - std::min(diffX, diffY);
-	}
-	case Heuristic::CHEBYSHEV:
-	{
-		return std::max(diffX, diffY);
-	}
-	case Heuristic::MANHATTAN:
-	{
-		return diffX + diffY;
-	}
-	case Heuristic::EUCLIDEAN:
-	{
-		return sqrt(diffX * diffX + diffY * diffY);
-	}
-	default:
-		return 0;
+		case Heuristic::OCTILE:
+		{
+			return static_cast<float>(std::min(diffX, diffY) * diag + (std::max(diffX, diffY) - std::min(diffX, diffY)) * linear);
+		}
+		case Heuristic::CHEBYSHEV:
+		{
+			return static_cast<float>(std::max(diffX, diffY));
+		}
+		case Heuristic::MANHATTAN:
+		{
+			return static_cast<float>(diffX + diffY);
+		}
+		case Heuristic::EUCLIDEAN:
+		{
+			return static_cast<float>(sqrt(diffX * diffX * 100 + diffY * diffY * 100));
+		}
+		default:
+			return 0;
 	}
 }
 
 AStarPather::Node* AStarPather::PopCheapestOpenListNode()
 {
-	std::sort(openList.begin(), openList.end(), [](Node* a, Node* b) { return a->fCost > b->fCost; });
-
-	auto retNode = openList.back();
-
-	auto temp = openList.end() - 1;
-	openList.erase(temp);
+	auto retNode = openList.top();
+	retNode->onList = NONE;
+	openList.pop();
 
 	return retNode;
 }
@@ -360,30 +351,33 @@ int AStarPather::SingleIndexConverter(const GridPos& pos)
 	return pos.row * gridSize.col + pos.col;
 }
 
-void AStarPather::UpdateCost(Node* child, Node* parent, float newF, float newG)
+void AStarPather::UpdateCost(Node* child, Node* parent, float newF, int newG)
 {
 	if (newF >= child->fCost)
 		return;
 
-	auto exNode = std::find(closedList.begin(), closedList.end(), child);
-
+	auto exNode = closedList.find(child);
 	if (exNode != closedList.end())
 	{
-		openList.emplace_back(*exNode);
-		(*exNode)->onList = ONLIST::OPEN;
-
 		closedList.erase(exNode);
-	}
-	else
-	{
-		openList.emplace_back(child);
-		child->onList = ONLIST::OPEN;
+		child->onList = (child->onList == CLOSED) ? NONE : child->onList;
 	}
 
 	child->fCost = newF;
 	child->gCost = newG;
 	child->parentNodePos = parent->pos;
 
+	if (child->onList == OPEN)
+	{
+		std::make_heap(const_cast<Node**>(&openList.top()),
+			const_cast<Node**>(&openList.top()) + openList.size(),
+			NodeCmp());
+	}
+	else
+	{
+		openList.emplace(child);
+		child->onList = OPEN;
+	}
 }
 
 void AStarPather::rubberbanding(PathRequest& request)
@@ -402,8 +396,8 @@ void AStarPather::rubberbanding(PathRequest& request)
 
 	while (str != mid)
 	{
-		GridPos minPos = GridPos{ std::min(gridPath[str].row, gridPath[end].row), std::min(gridPath[str].col, gridPath[end].col) };
-		GridPos maxPos = GridPos{ std::max(gridPath[str].row, gridPath[end].row), std::max(gridPath[str].col, gridPath[end].col) };
+		GridPos minPos = GridPos { std::min(gridPath[str].row, gridPath[end].row), std::min(gridPath[str].col, gridPath[end].col) };
+		GridPos maxPos = GridPos { std::max(gridPath[str].row, gridPath[end].row), std::max(gridPath[str].col, gridPath[end].col) };
 
 		bool hasWall = false;
 
@@ -447,6 +441,8 @@ void AStarPather::rubberbanding(PathRequest& request)
 void AStarPather::addPointsBackIn(PathRequest& request)
 {
 	auto& rPath = request.path;
+	const float distance = (terrain->get_world_position({ gridSize.row - 1 ,0 }) - terrain->get_world_position({ 0 ,0 })).x * 0.075f;
+
 	for (std::list<Vec3>::iterator it = rPath.begin(); it != rPath.end();)
 	{
 		std::list<Vec3>::iterator start, end;
@@ -456,10 +452,10 @@ void AStarPather::addPointsBackIn(PathRequest& request)
 		if (end == rPath.end())
 			return;
 
-		if (Vec3::Distance(*start, *end) > 1.5f)
+		if (Vec3::Distance(*start, *end) > distance)
 		{
 			Vec3 halfSum = (*start + *end) / 2;
-			rPath.insert(it, halfSum);
+			rPath.insert(end, halfSum);
 			it = start;
 		}
 	}
@@ -506,7 +502,7 @@ void AStarPather::smoothing(PathRequest& request)
 		p2 = p3;
 		p3 = p4;
 
-		if (p4 != end) 
+		if (p4 != end)
 			++p4;
 	}
 }
