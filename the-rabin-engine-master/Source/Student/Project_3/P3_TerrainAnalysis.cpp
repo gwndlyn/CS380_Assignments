@@ -235,14 +235,14 @@ void analyze_agent_vision(MapLayer<float>& layer, const Agent* agent)
 	{
 		for (int c = 0; c < terrain->get_map_width(); ++c)
 		{
-			Vec2 currCell{ terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
-			Vec2 cellToAgent{ currCell.x - agent->get_position().x, currCell.y - agent->get_position().z };
+			Vec2 currCell = { terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
+			Vec2 cellToAgent = { currCell.x - agent->get_position().x, currCell.y - agent->get_position().z };
 			cellToAgent.Normalize();
 
 			GridPos agentPosWP = terrain->get_grid_position(agent->get_position());
 
 			float dotProd = agentView.Dot(cellToAgent);
-			float fov = (float)cos(PI * 1.01);
+			float fov = static_cast<float>(cos(PI * 1.01));
 
 			if (dotProd > fov && dotProd > 0)
 				if (is_clear_path(agentPosWP.row, agentPosWP.col, r, c))
@@ -289,6 +289,8 @@ void propagate_solo_occupancy(MapLayer<float>& layer, float decay, float growth)
 				GridPos{r + 1, c - 1}
 			};
 
+			float sqrtTwo = static_cast<float>(sqrt(2));
+
 			for (int i = 0; i < neighbours.size(); ++i)
 			{
 				if (!terrain->is_valid_grid_position(neighbours[i])
@@ -297,21 +299,14 @@ void propagate_solo_occupancy(MapLayer<float>& layer, float decay, float growth)
 					continue;
 
 				float newInfluence = (i < 4)
-					? static_cast<float>(layer.get_value(neighbours[i]) * exp(-1 * 0.1 * decay))
-					: static_cast<float>(layer.get_value(neighbours[i]) * exp(-1 * 0.141 * decay));
+					? static_cast<float>(layer.get_value(neighbours[i]) * exp(-1 * decay))
+					: static_cast<float>(layer.get_value(neighbours[i]) * exp(-1 * sqrtTwo * decay));
 
-				layer.set_value(neighbours[i], newInfluence);
-
-				if (layer.get_value(neighbours[i]) > maxNeighbourInfluence)
-					maxNeighbourInfluence = layer.get_value(neighbours[i]);
+				if (newInfluence > maxNeighbourInfluence)
+					maxNeighbourInfluence = newInfluence;
 			}
 
-			float newVal = lerp(layer.get_value(r, c), maxNeighbourInfluence, growth);
-
-			tempLayer[r][c] = (1.0f - growth) * newVal + growth * maxNeighbourInfluence;
-
-			if (terrain->is_wall(r, c))
-				tempLayer[r][c] = 0.0f;
+			tempLayer[r][c] = lerp(layer.get_value(r, c), maxNeighbourInfluence, growth);
 
 		}
 	}
@@ -353,49 +348,16 @@ void normalize_solo_occupancy(MapLayer<float>& layer)
 	*/
 
 	float maxNeighbourInfluence = 0.0f;
-	std::array<	std::array<float, 40>, 40> tempLayer;
-
-	for (int r = 0; r < terrain->get_map_height(); ++r)
-		for (int c = 0; c < terrain->get_map_width(); ++c)
-			if (maxNeighbourInfluence < layer.get_value(r, c))
-				maxNeighbourInfluence = layer.get_value(r, c);
-
-	std::cout << maxNeighbourInfluence << std::endl;
 
 	for (int r = 0; r < terrain->get_map_height(); ++r)
 	{
 		for (int c = 0; c < terrain->get_map_width(); ++c)
 		{
-			std::array<GridPos, 8> neighbours
-			{
-				GridPos{r + 1, c},
-				GridPos{r, c + 1},
-				GridPos{r - 1, c},
-				GridPos{r, c - 1},
-
-				GridPos{r + 1, c + 1},
-				GridPos{r - 1, c + 1},
-				GridPos{r - 1, c - 1},
-				GridPos{r + 1, c - 1}
-			};
-
-			for (int i = 0; i < neighbours.size(); ++i)
-			{
-				if (!terrain->is_valid_grid_position(neighbours[i])
-					|| terrain->is_wall(neighbours[i])
-					|| !is_clear_path(r, c, neighbours[i].row, neighbours[i].col))
-					continue;
-
-				float newInfluence = (i < 4)
-					? static_cast<float>(layer.get_value(neighbours[i]) * exp(0.1 * 1 / maxNeighbourInfluence))
-					: static_cast<float>(layer.get_value(neighbours[i]) * exp(0.141 * 1 / maxNeighbourInfluence));
-
-				tempLayer[neighbours[i].row][neighbours[i].col] = newInfluence;
-
-			}
-
 			if (terrain->is_wall(r, c))
-				tempLayer[r][c] = 0.0f;
+				continue;
+
+			if (maxNeighbourInfluence < layer.get_value(r, c))
+				maxNeighbourInfluence = layer.get_value(r, c);
 		}
 	}
 
@@ -403,12 +365,10 @@ void normalize_solo_occupancy(MapLayer<float>& layer)
 	{
 		for (int c = 0; c < terrain->get_map_width(); ++c)
 		{
-			if (tempLayer[r][c] <= 0.0f)
-				tempLayer[r][c] = 0.0f;
-			else if (tempLayer[r][c] >= 1.0f)
-				tempLayer[r][c] = 1.0f;
+			if (terrain->is_wall(r, c) || layer.get_value(r, c) <= 0.0f)
+				continue;
 
-			layer.set_value(r, c, tempLayer[r][c]);
+			layer.set_value(r, c, layer.get_value(r, c) / maxNeighbourInfluence);
 		}
 	}
 
@@ -426,6 +386,35 @@ void normalize_dual_occupancy(MapLayer<float>& layer)
 	*/
 
 	// no need to implement
+
+	//float minNeighbourInfluence = INFINITY;
+	//float maxNeighbourInfluence = 0.0f;
+
+	//for (int r = 0; r < terrain->get_map_height(); ++r)
+	//{
+	//	for (int c = 0; c < terrain->get_map_width(); ++c)
+	//	{
+	//		if (terrain->is_wall(r, c))
+	//			continue;
+
+	//		if (maxNeighbourInfluence < layer.get_value(r, c))
+	//			maxNeighbourInfluence = layer.get_value(r, c);
+
+	//		if (minNeighbourInfluence > layer.get_value(r, c))
+	//			minNeighbourInfluence = layer.get_value(r, c);
+	//	}
+	//}
+
+	//for (int r = 0; r < terrain->get_map_height(); ++r)
+	//{
+	//	for (int c = 0; c < terrain->get_map_width(); ++c)
+	//	{
+	//		if (terrain->is_wall(r, c) || layer.get_value(r, c) <= 0.0f)
+	//			continue;
+
+	//		layer.set_value(r, c, layer.get_value(r, c) / maxNeighbourInfluence);
+	//	}
+	//}
 }
 
 void enemy_field_of_view(MapLayer<float>& layer, float fovAngle, float closeDistance, float occupancyValue, AStarAgent* enemy)
@@ -445,11 +434,6 @@ void enemy_field_of_view(MapLayer<float>& layer, float fovAngle, float closeDist
 		as a fov cone.
 	*/
 
-	for (int r = 0; r < terrain->get_map_height(); ++r)
-		for (int c = 0; c < terrain->get_map_width(); ++c)
-			if (layer.get_value(r, c) < 0.0f)
-				layer.set_value(r, c, 0.0f);
-
 	Vec2 enemyView = { enemy->get_forward_vector().x, enemy->get_forward_vector().z };
 	enemyView.Normalize();
 
@@ -457,34 +441,29 @@ void enemy_field_of_view(MapLayer<float>& layer, float fovAngle, float closeDist
 	{
 		for (int c = 0; c < terrain->get_map_width(); ++c)
 		{
-			Vec2 currCell{ terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
-			Vec2 cellToEnemy{ currCell.x - enemy->get_position().x, currCell.y - enemy->get_position().z };
+			if (terrain->is_wall(r, c))
+				continue;
+
+			Vec2 currCell = { terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
+			Vec2 enemyPos = { enemy->get_position().x , enemy->get_position().z };
+			Vec2 cellToEnemy = { currCell.x - enemyPos.x, currCell.y - enemyPos.y };
 			cellToEnemy.Normalize();
 
-			float dotProd = enemyView.Dot(cellToEnemy);
+			GridPos enemyPosGP = terrain->get_grid_position(enemy->get_position());
 
-			//if(dotProd >= 0.0f)
-			//TODO check dot prod against angle dot value (can't remember how to do this) 
-			//set value to occuancy value if is within fov angle
-		}
-	}
-
-	for (int r = 0; r < terrain->get_map_height(); ++r)
-	{
-		for (int c = 0; c < terrain->get_map_width(); ++c)
-		{
-			Vec2 currCell{ terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
-			Vec2 cellToEnemy{ currCell.x - enemy->get_position().x, currCell.y - enemy->get_position().z };
-			cellToEnemy.Normalize();
-
-			GridPos enemyPosWP = terrain->get_grid_position(enemy->get_position());
+			Vec2 enemyPosVec = { static_cast<float>(enemyPosGP.col), static_cast<float>(enemyPosGP.row) };
+			Vec2 currCellVec = { static_cast<float>(c), static_cast<float>(r) };
+			Vec2 cellToEnemyVec = { currCellVec.x - enemyPosVec.x, currCellVec.y - enemyPosVec.y };
+			float dist = cellToEnemyVec.Length();
 
 			float dotProd = enemyView.Dot(cellToEnemy);
-			float fov = (float)cos(PI * 1.01);
+			float fov = static_cast<float>(cos(fovAngle * PI / 180));
 
-			if (dotProd > fov && dotProd > 0)
-				if (is_clear_path(enemyPosWP.row, enemyPosWP.col, r, c))
-					layer.set_value(r, c, 1);
+			if ((dist < closeDistance)
+				|| (dotProd > fov && dotProd > 0 && is_clear_path(enemyPosGP.row, enemyPosGP.col, r, c)))
+				layer.set_value(r, c, occupancyValue);
+			else if (layer.get_value(r, c) < 0.0f)
+				layer.set_value(r, c, 0.0f);
 		}
 	}
 
@@ -527,7 +506,44 @@ bool enemy_seek_player(MapLayer<float>& layer, AStarAgent* enemy)
 		Return whether a target cell was found.
 	*/
 
-	// WRITE YOUR CODE HERE
+	float highestVal = 0.0f;
+	Vec2 closestPoint;
+	bool isSet = false;
 
-	return false; // REPLACE THIS
+	for (int r = 0; r < terrain->get_map_height(); ++r)
+	{
+		for (int c = 0; c < terrain->get_map_width(); ++c)
+		{
+			if (terrain->is_wall(r, c))
+				continue;
+
+			if (highestVal < layer.get_value(r, c))
+			{
+				closestPoint = { terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
+				highestVal = layer.get_value(r, c);
+				isSet = true;
+			}
+			else if (highestVal == layer.get_value(r, c))
+			{
+				Vec2 currCell = { terrain->get_world_position(r,c).x, terrain->get_world_position(r,c).z };
+				Vec2 enemyToCell = { enemy->get_position().x - currCell.x ,enemy->get_position().z - currCell.y };
+				Vec2 enemyToClosestCell = { enemy->get_position().x - closestPoint.x ,enemy->get_position().z - closestPoint.y };
+
+				if (enemyToCell.Length() < enemyToClosestCell.Length())
+				{
+					highestVal = layer.get_value(r, c);
+					closestPoint = currCell;
+					isSet = true;
+				}
+			}
+		}
+	}
+
+	if (isSet)
+	{
+		enemy->path_to(Vec3{ closestPoint.x, 0.0f, closestPoint.y });
+		return true;
+	}
+	else
+		return false;
 }
